@@ -1,0 +1,190 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "A book or story published by praBin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "type": { "type": "string", "enum": ["book", "story"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "subtitle": { "type": "string", "maxLength": 240 },
+        "genre": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "coverUrl": { "type": "string", "maxLength": 600 },
+        "excerpt": { "type": "string", "minLength": 1, "maxLength": 600 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 250000 },
+        "readingTimeMinutes": { "type": "integer" },
+        "wordCount": { "type": "integer" },
+        "published": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "likesCount": { "type": "integer" },
+        "commentsCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "authorId",
+        "authorName",
+        "type",
+        "title",
+        "subtitle",
+        "genre",
+        "coverUrl",
+        "excerpt",
+        "content",
+        "readingTimeMinutes",
+        "wordCount",
+        "published",
+        "featured",
+        "likesCount",
+        "commentsCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PostLike": {
+      "title": "PostLike",
+      "description": "A user's like on a published post.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postTitle": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "postType": { "type": "string", "enum": ["book", "story"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "postId", "postTitle", "postType", "createdAt"]
+    },
+    "PostComment": {
+      "title": "PostComment",
+      "description": "A reader comment on a published post.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "authorPhotoUrl": { "type": "string", "maxLength": 600 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "postId", "userId", "authorName", "authorPhotoUrl", "body", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Non-PII reader profile summary.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "photoUrl": { "type": "string", "maxLength": 600 },
+        "bio": { "type": "string", "maxLength": 400 },
+        "role": { "type": "string", "enum": ["reader", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "photoUrl", "bio", "role", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII document for user email.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 160 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "updatedAt"]
+    },
+    "ReadingHistoryItem": {
+      "title": "ReadingHistoryItem",
+      "description": "Tracks a reader's progress and bookmark on a post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postTitle": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "postType": { "type": "string", "enum": ["book", "story"] },
+        "postCoverUrl": { "type": "string", "maxLength": 600 },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "progressPercent": { "type": "integer" },
+        "bookmarked": { "type": "boolean" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "lastReadAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "postId",
+        "postTitle",
+        "postType",
+        "postCoverUrl",
+        "authorName",
+        "progressPercent",
+        "bookmarked",
+        "startedAt",
+        "lastReadAt"
+      ]
+    },
+    "UserActivityItem": {
+      "title": "UserActivityItem",
+      "description": "Tracks a reader's personal like and comment interactions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["like", "comment"] },
+        "postId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "postTitle": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "postType": { "type": "string", "enum": ["book", "story"] },
+        "commentExcerpt": { "type": "string", "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "postId", "postTitle", "postType", "commentExcerpt", "createdAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted admin marker document.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Published and draft books/stories uploaded by praBin."
+    },
+    "/posts/{postId}/likes/{userId}": {
+      "schema": { "$ref": "#/entities/PostLike" },
+      "description": "Per-user like records under each post."
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/PostComment" },
+      "description": "Reader comments under each post."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Public non-PII reader profile."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Isolated PII storage for user email."
+    },
+    "/users/{userId}/readingHistory/{postId}": {
+      "schema": { "$ref": "#/entities/ReadingHistoryItem" },
+      "description": "User's private reading progress and bookmarks."
+    },
+    "/users/{userId}/activity/{activityId}": {
+      "schema": { "$ref": "#/entities/UserActivityItem" },
+      "description": "User's personal interaction log (likes and comments)."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Admin role registry."
+    }
+  }
+}

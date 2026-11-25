@@ -1,0 +1,6 @@
+{
+  "name": "praBin",
+  "description": "praBin Author Portal — Upload stories from Google Drive PDFs, publish books and short stories, and view reader thoughts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

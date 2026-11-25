@@ -1,0 +1,359 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'prabinbaral52@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidPost(data, postId) {
+      return data.keys().hasAll([
+          'id', 'authorId', 'authorName', 'type', 'title', 'subtitle',
+          'genre', 'coverUrl', 'excerpt', 'content', 'readingTimeMinutes',
+          'wordCount', 'published', 'featured', 'likesCount', 'commentsCount',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'authorId', 'authorName', 'type', 'title', 'subtitle',
+          'genre', 'coverUrl', 'excerpt', 'content', 'readingTimeMinutes',
+          'wordCount', 'published', 'featured', 'likesCount', 'commentsCount',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == postId
+        && isValidId(data.id)
+        && isValidId(data.authorId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+        && data.type in ['book', 'story']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.subtitle is string && data.subtitle.size() <= 240
+        && data.genre is string && data.genre.size() >= 1 && data.genre.size() <= 60
+        && data.coverUrl is string && data.coverUrl.size() <= 600
+        && data.excerpt is string && data.excerpt.size() >= 1 && data.excerpt.size() <= 600
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 250000
+        && data.readingTimeMinutes is int && data.readingTimeMinutes >= 1 && data.readingTimeMinutes <= 1000
+        && data.wordCount is int && data.wordCount >= 1 && data.wordCount <= 500000
+        && data.published is bool
+        && data.featured is bool
+        && data.likesCount is int && data.likesCount >= 0
+        && data.commentsCount is int && data.commentsCount >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPostLike(data, postId, userId) {
+      return data.keys().hasAll(['userId', 'postId', 'postTitle', 'postType', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'postId', 'postTitle', 'postType', 'createdAt'])
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && data.postId == postId
+        && isValidId(data.postId)
+        && data.postTitle is string && data.postTitle.size() >= 1 && data.postTitle.size() <= 160
+        && data.postType in ['book', 'story']
+        && data.createdAt == request.time;
+    }
+
+    function isValidPostComment(data, postId, commentId) {
+      return data.keys().hasAll(['id', 'postId', 'userId', 'authorName', 'authorPhotoUrl', 'body', 'createdAt'])
+        && data.keys().hasOnly(['id', 'postId', 'userId', 'authorName', 'authorPhotoUrl', 'body', 'createdAt'])
+        && data.id == commentId
+        && isValidId(data.id)
+        && data.postId == postId
+        && isValidId(data.postId)
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+        && data.authorPhotoUrl is string && data.authorPhotoUrl.size() <= 600
+        && data.body is string && data.body.size() >= 1 && data.body.size() <= 2000
+        && data.createdAt == request.time;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'photoUrl', 'bio', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'photoUrl', 'bio', 'role', 'createdAt', 'updatedAt'])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.photoUrl is string && data.photoUrl.size() <= 600
+        && data.bio is string && data.bio.size() <= 400
+        && data.role in ['reader', 'admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'updatedAt'])
+        && data.uid == userId
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() <= 160
+        && data.updatedAt == request.time;
+    }
+
+    function isValidReadingHistoryItem(data, postId) {
+      return data.keys().hasAll([
+          'postId', 'postTitle', 'postType', 'postCoverUrl', 'authorName',
+          'progressPercent', 'bookmarked', 'startedAt', 'lastReadAt'
+        ])
+        && data.keys().hasOnly([
+          'postId', 'postTitle', 'postType', 'postCoverUrl', 'authorName',
+          'progressPercent', 'bookmarked', 'startedAt', 'lastReadAt'
+        ])
+        && data.postId == postId
+        && isValidId(data.postId)
+        && data.postTitle is string && data.postTitle.size() >= 1 && data.postTitle.size() <= 160
+        && data.postType in ['book', 'story']
+        && data.postCoverUrl is string && data.postCoverUrl.size() <= 600
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80
+        && data.progressPercent is int && data.progressPercent >= 0 && data.progressPercent <= 100
+        && data.bookmarked is bool
+        && data.startedAt is timestamp
+        && data.lastReadAt is timestamp;
+    }
+
+    function isValidUserActivityItem(data, activityId) {
+      return data.keys().hasAll(['id', 'type', 'postId', 'postTitle', 'postType', 'commentExcerpt', 'createdAt'])
+        && data.keys().hasOnly(['id', 'type', 'postId', 'postTitle', 'postType', 'commentExcerpt', 'createdAt'])
+        && data.id == activityId
+        && isValidId(data.id)
+        && data.type in ['like', 'comment']
+        && isValidId(data.postId)
+        && data.postTitle is string && data.postTitle.size() >= 1 && data.postTitle.size() <= 160
+        && data.postType in ['book', 'story']
+        && data.commentExcerpt is string && data.commentExcerpt.size() <= 240
+        && data.createdAt == request.time;
+    }
+
+    function isValidAdminRecord(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'createdAt'])
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() <= 160
+        && data.createdAt == request.time;
+    }
+
+    // --- Collection Rules ---
+    match /posts/{postId} {
+      allow get: if isValidId(postId) && (existing().published == true || isAdmin());
+      allow list: if existing().published == true || isAdmin();
+      allow create: if isAdmin()
+        && isValidId(postId)
+        && isValidPost(incoming(), postId)
+        && incoming().authorId == request.auth.uid
+        && incoming().likesCount == 0
+        && incoming().commentsCount == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(postId) && isValidPost(incoming(), postId) && (
+        // Action: Admin Edit
+        (isAdmin()
+          && incoming().authorId == existing().authorId
+          && incoming().id == existing().id
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'type', 'title', 'subtitle', 'genre', 'coverUrl', 'excerpt',
+            'content', 'readingTimeMinutes', 'wordCount', 'published',
+            'featured', 'updatedAt'
+          ])
+        ) ||
+        // Action: Reader Atomic Like / Unlike
+        (isVerifiedUser()
+          && existing().published == true
+          && incoming().diff(existing()).affectedKeys().hasOnly(['likesCount'])
+          && (
+            (incoming().likesCount == existing().likesCount + 1
+              && !exists(/databases/$(database)/documents/posts/$(postId)/likes/$(request.auth.uid))
+              && existsAfter(/databases/$(database)/documents/posts/$(postId)/likes/$(request.auth.uid)))
+            ||
+            (incoming().likesCount == existing().likesCount - 1
+              && existing().likesCount > 0
+              && exists(/databases/$(database)/documents/posts/$(postId)/likes/$(request.auth.uid))
+              && !existsAfter(/databases/$(database)/documents/posts/$(postId)/likes/$(request.auth.uid)))
+          )
+        ) ||
+        // Action: Reader Comment Count Sync
+        (isVerifiedUser()
+          && existing().published == true
+          && incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount'])
+          && (
+            incoming().commentsCount == existing().commentsCount + 1 ||
+            (incoming().commentsCount == existing().commentsCount - 1 && existing().commentsCount > 0)
+          )
+        )
+      );
+      allow delete: if isAdmin() && isValidId(postId);
+
+      match /likes/{userId} {
+        allow get: if isValidId(postId) && isValidId(userId) && (isOwner(userId) || isAdmin());
+        allow list: if false;
+        allow create: if isVerifiedUser()
+          && isValidId(postId) && isValidId(userId)
+          && isOwner(userId)
+          && isValidPostLike(incoming(), postId, userId)
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.published == true
+          && getAfter(/databases/$(database)/documents/posts/$(postId)).data.likesCount
+             == get(/databases/$(database)/documents/posts/$(postId)).data.likesCount + 1;
+        allow update: if false;
+        allow delete: if isVerifiedUser()
+          && isValidId(postId) && isValidId(userId)
+          && (isOwner(userId) || isAdmin())
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && getAfter(/databases/$(database)/documents/posts/$(postId)).data.likesCount
+             == get(/databases/$(database)/documents/posts/$(postId)).data.likesCount - 1;
+      }
+
+      match /comments/{commentId} {
+        allow get: if isValidId(postId) && isValidId(commentId)
+          && (get(/databases/$(database)/documents/posts/$(postId)).data.published == true || isAdmin());
+        allow list: if existing().postId == postId;
+        allow create: if isVerifiedUser()
+          && isValidId(postId) && isValidId(commentId)
+          && isValidPostComment(incoming(), postId, commentId)
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && get(/databases/$(database)/documents/posts/$(postId)).data.published == true
+          && getAfter(/databases/$(database)/documents/posts/$(postId)).data.commentsCount
+             == get(/databases/$(database)/documents/posts/$(postId)).data.commentsCount + 1;
+        allow update: if false;
+        allow delete: if isVerifiedUser()
+          && isValidId(postId) && isValidId(commentId)
+          && (isOwner(existing().userId) || isAdmin())
+          && (
+            !existsAfter(/databases/$(database)/documents/posts/$(postId)) ||
+            getAfter(/databases/$(database)/documents/posts/$(postId)).data.commentsCount
+              == get(/databases/$(database)/documents/posts/$(postId)).data.commentsCount - 1
+          );
+      }
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && (incoming().role == 'reader' || isAdmin())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && (
+          (isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().uid == existing().uid
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'bio', 'updatedAt'])
+          ) ||
+          (isAdmin()
+            && incoming().uid == existing().uid
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'bio', 'role', 'updatedAt'])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(userId);
+
+      match /private/{docId} {
+        allow get: if isValidId(userId) && isValidId(docId) && (isOwner(userId) || isAdmin());
+        allow list: if false;
+        allow create: if isVerifiedUser()
+          && isValidId(userId) && isValidId(docId)
+          && docId == 'info'
+          && isOwner(userId)
+          && isValidUserPrivateInfo(incoming(), userId);
+        allow update: if isVerifiedUser()
+          && isValidId(userId) && isValidId(docId)
+          && docId == 'info'
+          && isOwner(userId)
+          && isValidUserPrivateInfo(incoming(), userId)
+          && incoming().uid == existing().uid
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt']);
+        allow delete: if isAdmin() && isValidId(userId) && isValidId(docId);
+      }
+
+      match /readingHistory/{postId} {
+        allow get: if isValidId(userId) && isValidId(postId) && (isOwner(userId) || isAdmin());
+        allow list: if isOwner(userId) || isAdmin();
+        allow create: if isVerifiedUser()
+          && isValidId(userId) && isValidId(postId)
+          && isOwner(userId)
+          && isValidReadingHistoryItem(incoming(), postId)
+          && incoming().startedAt == request.time
+          && incoming().lastReadAt == request.time;
+        allow update: if isVerifiedUser()
+          && isValidId(userId) && isValidId(postId)
+          && isOwner(userId)
+          && isValidReadingHistoryItem(incoming(), postId)
+          && incoming().postId == existing().postId
+          && incoming().startedAt == existing().startedAt
+          && incoming().lastReadAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'postTitle', 'postType', 'postCoverUrl', 'authorName',
+            'progressPercent', 'bookmarked', 'lastReadAt'
+          ]);
+        allow delete: if isVerifiedUser() && isValidId(userId) && isValidId(postId) && isOwner(userId);
+      }
+
+      match /activity/{activityId} {
+        allow get: if isValidId(userId) && isValidId(activityId) && (isOwner(userId) || isAdmin());
+        allow list: if isOwner(userId) || isAdmin();
+        allow create: if isVerifiedUser()
+          && isValidId(userId) && isValidId(activityId)
+          && isOwner(userId)
+          && isValidUserActivityItem(incoming(), activityId);
+        allow update: if false;
+        allow delete: if isVerifiedUser() && isValidId(userId) && isValidId(activityId) && isOwner(userId);
+      }
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && request.auth.token.email == 'prabinbaral52@gmail.com'
+        && isValidAdminRecord(incoming(), userId);
+      allow update, delete: if false;
+    }
+  }
+}
